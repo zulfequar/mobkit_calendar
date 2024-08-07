@@ -12,6 +12,30 @@ class MobkitCalendarWidget extends StatefulWidget {
   final Function(List<MobkitCalendarAppointmentModel> models, DateTime datetime)
       onSelectionChange;
   final Function(MobkitCalendarAppointmentModel model)? eventTap;
+
+  /// [slotDateTime] is the [DateTime] object for the tapped slot.
+  ///
+  /// [slotLocation] is the location of the time slot within an even.
+  ///
+  /// [model] is the appointment model of the event which has occupied the
+  /// tapped slot time. It's value is null if there is no such event.
+  ///
+  /// The type of [slotLocation] is [String]?.
+  /// The type of [model] is [MobkitCalendarAppointmentModel]?
+  /// <br> <br>
+  /// It has four possible values:
+  /// * 'event_start': If the tapped slot is a start time of an event.
+  /// * 'event_end': If the tapped slot is an end time of an event.
+  /// * 'within_event': If the tapped slot is between the start and end time of
+  /// an event.
+  /// * null: If the tapped slot is not booked in any event.
+  final void Function(DateTime slotDateTime, String? slotLocation,
+      MobkitCalendarAppointmentModel? model)? onSlotTap;
+
+  /// List of currently selected slots. Typically, start and end time slots of
+  /// an event.
+  final List<DateTime> selectedSlots;
+  final double? timeSlotsListInitialScrollOffset;
   final Function(DateTime datetime)? onDateChanged;
   final MobkitCalendarController? mobkitCalendarController;
   final Widget Function(
@@ -34,6 +58,9 @@ class MobkitCalendarWidget extends StatefulWidget {
     this.config,
     required this.onSelectionChange,
     this.eventTap,
+    this.onSlotTap,
+    this.selectedSlots = const [],
+    this.timeSlotsListInitialScrollOffset,
     this.minDate,
     this.onPopupWidget,
     this.headerWidget,
@@ -76,6 +103,10 @@ class _MobkitCalendarWidgetState extends State<MobkitCalendarWidget> {
             minDate: widget.minDate,
             onSelectionChange: widget.onSelectionChange,
             eventTap: widget.eventTap,
+            onSlotTap: widget.onSlotTap,
+            selectedSlots: widget.selectedSlots,
+            timeSlotsListInitialScrollOffset:
+                widget.timeSlotsListInitialScrollOffset,
             onPopupWidget: widget.onPopupWidget,
             headerWidget: widget.headerWidget,
             titleWidget: widget.titleWidget,

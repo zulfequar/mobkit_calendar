@@ -21,6 +21,9 @@ class MobkitCalendarView extends StatelessWidget {
     this.minDate,
     this.onSelectionChange,
     this.eventTap,
+    this.onSlotTap,
+    this.selectedSlots = const [],
+    this.timeSlotsListInitialScrollOffset,
     this.onPopupWidget,
     this.headerWidget,
     this.titleWidget,
@@ -36,6 +39,30 @@ class MobkitCalendarView extends StatelessWidget {
           List<MobkitCalendarAppointmentModel> models, DateTime datetime)?
       onSelectionChange;
   final Function(MobkitCalendarAppointmentModel model)? eventTap;
+
+  /// [slotDateTime] is the [DateTime] object for the tapped slot.
+  ///
+  /// [slotLocation] is the location of the time slot within an even.
+  ///
+  /// [model] is the appointment model of the event which has occupied the
+  /// tapped slot time. It's value is null if there is no such event.
+  ///
+  /// The type of [slotLocation] is [String]?.
+  /// The type of [model] is [MobkitCalendarAppointmentModel]?
+  /// <br> <br>
+  /// It has four possible values:
+  /// * 'event_start': If the tapped slot is a start time of an event.
+  /// * 'event_end': If the tapped slot is an end time of an event.
+  /// * 'within_event': If the tapped slot is between the start and end time of
+  /// an event.
+  /// * null: If the tapped slot is not booked in any event.
+  final void Function(DateTime slotDateTime, String? slotLocation,
+      MobkitCalendarAppointmentModel? model)? onSlotTap;
+
+  /// List of currently selected slots. Typically, start and end time slots of
+  /// an event.
+  final List<DateTime> selectedSlots;
+  final double? timeSlotsListInitialScrollOffset;
   final Widget Function(
           List<MobkitCalendarAppointmentModel> list, DateTime datetime)?
       onPopupWidget;
@@ -200,6 +227,9 @@ class MobkitCalendarView extends StatelessWidget {
     );
   }
 
+  // Modify the height of the event widget with a positive or a negative value.
+  final double heightModifier = 85;
+
   ListenableBuilder mobkitCalendarDailyDataList(
       int maxGroupCount, double width) {
     return ListenableBuilder(
@@ -267,7 +297,9 @@ class MobkitCalendarView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               allDayList.isNotEmpty
-                  ? Padding(
+                  ?
+                  // All day event widgets
+                  Padding(
                       padding: config?.dailyItemsConfigModel.allDayMargin ??
                           const EdgeInsets.symmetric(vertical: 6),
                       child: Row(
@@ -326,14 +358,19 @@ class MobkitCalendarView extends StatelessWidget {
                       ),
                     )
                   : Container(),
+              // Event widgets with time slots
               Expanded(
                 child: SingleChildScrollView(
+                  key: const PageStorageKey('daily_view_slots'),
+                  controller: ScrollController(
+                      initialScrollOffset:
+                          timeSlotsListInitialScrollOffset ?? 0.0),
                   child: Stack(
                     children: List<Widget>.generate(
                       modelList.length,
                       (i) {
                         return Positioned(
-                          top: topPositioned(modelList, i, newDate),
+                          top: 4 + topPositioned(modelList, i, newDate),
                           left: leftPositioned(
                               modelList, i, width, maxGroupCount),
                           width: widthPositioned(width, maxGroupCount),
@@ -346,7 +383,7 @@ class MobkitCalendarView extends StatelessWidget {
                                 padding: config?.dailyItemsConfigModel
                                     .itemFrameStyle?.padding,
                                 decoration: BoxDecoration(
-                                    color: modelList[i].color,
+                                    color: modelList[i].color?.withOpacity(0.8),
                                     borderRadius: config?.dailyItemsConfigModel
                                             .itemFrameStyle?.borderRadius ??
                                         const BorderRadius.all(
@@ -356,7 +393,7 @@ class MobkitCalendarView extends StatelessWidget {
                                 child: Align(
                                   alignment: config?.dailyItemsConfigModel
                                           .itemFrameStyle?.alignment ??
-                                      Alignment.topLeft,
+                                      Alignment.topCenter,
                                   child: Text(
                                     modelList[i].title ?? "",
                                     style: config?.dailyItemsConfigModel
@@ -371,45 +408,223 @@ class MobkitCalendarView extends StatelessWidget {
                       },
                     )..insert(
                         0,
+                        // Time slots widget
                         Column(
                           children: List<Widget>.generate(
                             24,
-                            (index) {
-                              if (index == 0) {
-                                return const SizedBox(
-                                  height: 80,
-                                );
-                              } else {
-                                return Container(
-                                  alignment: Alignment.topCenter,
-                                  height: 80,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(
-                                        left: 12, right: 12),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          "${(index).toString()}:00",
-                                          style: config?.dailyItemsConfigModel
-                                                  .hourTextStyle ??
-                                              const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 18),
+                            (hour) {
+                              return Container(
+                                alignment: Alignment.topCenter,
+                                height: 80 + heightModifier,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                      left: 12, right: 12),
+                                  child: Column(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceAround,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      InkWell(
+                                        onTap: () {
+                                          DateTime slotDtTm = DateTime(
+                                              newDate.year,
+                                              newDate.month,
+                                              newDate.day,
+                                              hour,
+                                              0);
+                                          String? slotLocation;
+                                          MobkitCalendarAppointmentModel? model;
+                                          for (int modelIndex = 0;
+                                              modelIndex < modelList.length;
+                                              modelIndex++) {
+                                            if (slotDtTm ==
+                                                modelList[modelIndex]
+                                                    .appointmentStartDate) {
+                                              slotLocation = 'event_start';
+                                              model = modelList[modelIndex];
+                                              break;
+                                            } else if (slotDtTm ==
+                                                modelList[modelIndex]
+                                                    .appointmentEndDate) {
+                                              slotLocation = 'event_end';
+                                              model = modelList[modelIndex];
+                                              break;
+                                            } else if (slotDtTm.isBetween(
+                                                    modelList[modelIndex]
+                                                        .appointmentStartDate
+                                                        .add(const Duration(
+                                                            minutes: 1)),
+                                                    modelList[modelIndex]
+                                                        .appointmentEndDate
+                                                        .subtract(
+                                                            const Duration(
+                                                                minutes: 1))) ??
+                                                false) {
+                                              slotLocation = 'within_event';
+                                              model = modelList[modelIndex];
+                                              break;
+                                            }
+                                          }
+                                          if (slotLocation != null) {
+                                            debugPrint(
+                                                'Slot ${hour < 10 ? '0' : ''}$hour:00 is already booked.\nSlot location: $slotLocation');
+                                          }
+                                          return onSlotTap?.call(
+                                              slotDtTm, slotLocation, model);
+                                        },
+                                        child: Container(
+                                          padding:
+                                              const EdgeInsets.only(bottom: 15),
+                                          decoration: BoxDecoration(
+                                              color: selectedSlots.contains(
+                                                      DateTime(
+                                                          newDate.year,
+                                                          newDate.month,
+                                                          newDate.day,
+                                                          hour,
+                                                          0))
+                                                  ? (config?.cellConfig
+                                                          .selectedStyle?.color
+                                                          ?.withOpacity(0.3) ??
+                                                      Colors.blue[100])
+                                                  : null,
+                                              borderRadius:
+                                                  BorderRadius.circular(5)),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                '${hour < 10 ? '0' : ''}'
+                                                '$hour:00',
+                                                style: config
+                                                        ?.dailyItemsConfigModel
+                                                        .hourTextStyle ??
+                                                    const TextStyle(
+                                                      color: Colors.black,
+                                                      fontSize: 18,
+                                                    ),
+                                              ),
+                                              Container(
+                                                width: width * 0.8,
+                                                color: Theme.of(context)
+                                                    .dividerColor,
+                                                height: 1,
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                        Container(
-                                          width: width * 0.8,
-                                          color: Theme.of(context).dividerColor,
-                                          height: 1,
+                                      ),
+                                      ...List.generate(
+                                        3,
+                                        (i) => InkWell(
+                                          onTap: () {
+                                            DateTime slotDtTm = DateTime(
+                                                newDate.year,
+                                                newDate.month,
+                                                newDate.day,
+                                                hour,
+                                                (i + 1) * 15);
+                                            String? slotLocation;
+                                            MobkitCalendarAppointmentModel?
+                                                model;
+                                            for (int modelIndex = 0;
+                                                modelIndex < modelList.length;
+                                                modelIndex++) {
+                                              if (slotDtTm ==
+                                                  modelList[modelIndex]
+                                                      .appointmentStartDate) {
+                                                slotLocation = 'event_start';
+                                                model = modelList[modelIndex];
+                                                break;
+                                              } else if (slotDtTm ==
+                                                  modelList[modelIndex]
+                                                      .appointmentEndDate) {
+                                                slotLocation = 'event_end';
+                                                model = modelList[modelIndex];
+                                                break;
+                                              } else if (slotDtTm.isBetween(
+                                                      modelList[modelIndex]
+                                                          .appointmentStartDate
+                                                          .add(const Duration(
+                                                              minutes: 1)),
+                                                      modelList[modelIndex]
+                                                          .appointmentEndDate
+                                                          .subtract(
+                                                              const Duration(
+                                                                  minutes:
+                                                                      1))) ??
+                                                  false) {
+                                                slotLocation = 'within_event';
+                                                model = modelList[modelIndex];
+                                                break;
+                                              }
+                                            }
+                                            if (slotLocation != null) {
+                                              debugPrint(
+                                                  'Slot ${hour < 10 ? '0' : ''}$hour:${(i + 1) * 15} is already booked.\nSlot location: $slotLocation');
+                                            }
+                                            return onSlotTap?.call(
+                                                slotDtTm, slotLocation, model);
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 15),
+                                            decoration: BoxDecoration(
+                                                color: selectedSlots.contains(
+                                                        DateTime(
+                                                            newDate.year,
+                                                            newDate.month,
+                                                            newDate.day,
+                                                            hour,
+                                                            (i + 1) * 15))
+                                                    ? (config
+                                                            ?.cellConfig
+                                                            .selectedStyle
+                                                            ?.color
+                                                            ?.withOpacity(
+                                                                0.3) ??
+                                                        Colors.blue[100])
+                                                    : null,
+                                                borderRadius:
+                                                    BorderRadius.circular(5)),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  '${hour < 10 ? '0' : ''}'
+                                                  '$hour:${(i + 1) * 15}',
+                                                  style: config
+                                                          ?.dailyItemsConfigModel
+                                                          .hourTextStyle ??
+                                                      const TextStyle(
+                                                        color: Colors.black,
+                                                        fontSize: 18,
+                                                      ),
+                                                ),
+                                                Container(
+                                                  width: width * 0.8,
+                                                  color: Theme.of(context)
+                                                      .dividerColor
+                                                      .withOpacity(0.3),
+                                                  height: 1,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                );
-                              }
+                                ),
+                              );
                             },
                           ),
                         ),
@@ -428,20 +643,20 @@ class MobkitCalendarView extends StatelessWidget {
       List<MobkitCalendarAppointmentModel> modelList, int i, DateTime newDate) {
     return (!modelList[i].appointmentEndDate.isSameDay(newDate) &&
             !modelList[i].appointmentStartDate.isSameDay(newDate))
-        ? 24 * 80
+        ? 24 * (80 + heightModifier)
         : (!modelList[i].appointmentStartDate.isSameDay(newDate) &&
                 modelList[i].appointmentEndDate.isSameDay(newDate))
-            ? (80 *
+            ? ((80 + heightModifier) *
                             (modelList[i].appointmentEndDate.hour +
                                 (modelList[i].appointmentEndDate.minute / 60)))
                         .toDouble() !=
                     0
-                ? (80 *
+                ? ((80 + heightModifier) *
                             (modelList[i].appointmentEndDate.hour +
                                 (modelList[i].appointmentEndDate.minute / 60)))
                         .toDouble() +
                     9
-                : (80 *
+                : ((80 + heightModifier) *
                         (modelList[i].appointmentEndDate.hour +
                             (modelList[i].appointmentEndDate.minute / 60)))
                     .toDouble()
@@ -451,12 +666,12 @@ class MobkitCalendarView extends StatelessWidget {
                             .difference(modelList[i].appointmentStartDate)
                             .inMinutes) /
                         60) *
-                    80)
+                    (80 + heightModifier))
                 : modelList[i]
                         .appointmentEndDate
                         .difference(modelList[i].appointmentStartDate)
                         .inHours *
-                    80;
+                    (80 + heightModifier);
   }
 
   double widthPositioned(double width, int maxGroupCount) =>
@@ -464,7 +679,8 @@ class MobkitCalendarView extends StatelessWidget {
 
   double leftPositioned(List<MobkitCalendarAppointmentModel> modelList, int i,
       double width, int maxGroupCount) {
-    return 58.5 +
+    return 58.5 -
+        9.5 +
         ((modelList[i].index ?? 0) > 0
             ? ((width * 0.8) / maxGroupCount) * (modelList[i].index ?? 0)
             : 0);
@@ -478,19 +694,19 @@ class MobkitCalendarView extends StatelessWidget {
         : (!modelList[i].appointmentStartDate.isSameDay(newDate) &&
                 modelList[i].appointmentEndDate.isSameDay(newDate))
             ? 0
-            : (80 *
+            : ((80 + heightModifier) *
                             (modelList[i].appointmentStartDate.hour +
                                 (modelList[i].appointmentStartDate.minute /
                                     60)))
                         .toDouble() !=
                     0
-                ? (80 *
+                ? ((80 + heightModifier) *
                             (modelList[i].appointmentStartDate.hour +
                                 (modelList[i].appointmentStartDate.minute /
                                     60)))
                         .toDouble() +
                     9
-                : (80 *
+                : ((80 + heightModifier) *
                         (modelList[i].appointmentStartDate.hour +
                             (modelList[i].appointmentStartDate.minute / 60)))
                     .toDouble();
