@@ -9,8 +9,7 @@ import 'mobkit_calendar/model/mobkit_calendar_appointment_model.dart';
 class MobkitCalendarWidget extends StatefulWidget {
   final DateTime? minDate;
   final MobkitCalendarConfigModel? config;
-  final Function(List<MobkitCalendarAppointmentModel> models, DateTime datetime)
-      onSelectionChange;
+  final Function(List<MobkitCalendarAppointmentModel> models, DateTime datetime) onSelectionChange;
   final Function(MobkitCalendarAppointmentModel model)? eventTap;
 
   /// [slotDateTime] is the [DateTime] object for the tapped slot.
@@ -29,28 +28,31 @@ class MobkitCalendarWidget extends StatefulWidget {
   /// * 'within_event': If the tapped slot is between the start and end time of
   /// an event.
   /// * null: If the tapped slot is not booked in any event.
-  final void Function(DateTime slotDateTime, String? slotLocation,
-      MobkitCalendarAppointmentModel? model)? onSlotTap;
+  final void Function(DateTime slotDateTime, String? slotLocation, MobkitCalendarAppointmentModel? model)? onSlotTap;
 
   /// List of currently selected slots. Typically, start and end time slots of
   /// an event.
   final List<DateTime> selectedSlots;
+
+  /// A string representing a time slot in hh:mm format before which all the time slots in day view should be disabled.
+  final String? disableSlotsBefore;
+
+  /// A string representing a time slot in hh:mm format after which all the time slots in day view should be disabled.
+  final String? disableSlotsAfter;
+
+  /// A list of strings representing time slots where each string is in hh:mm format and for each string the time slot in day view should be disabled.
+  final List<String> disabledSlots;
+
+  /// Color for the disabled slots.
+  final Color? disabledSlotsColor;
   final double? timeSlotsListInitialScrollOffset;
   final Function(DateTime datetime)? onDateChanged;
   final MobkitCalendarController? mobkitCalendarController;
-  final Widget Function(
-          List<MobkitCalendarAppointmentModel> list, DateTime datetime)?
-      onPopupWidget;
-  final Widget Function(
-          List<MobkitCalendarAppointmentModel> list, DateTime datetime)?
-      headerWidget;
-  final Widget Function(
-          List<MobkitCalendarAppointmentModel> list, DateTime datetime)?
-      titleWidget;
-  final Widget Function(MobkitCalendarAppointmentModel list, DateTime datetime)?
-      agendaWidget;
-  final Widget Function(Map<DateTime, List<MobkitCalendarAppointmentModel>>)?
-      weeklyViewWidget;
+  final Widget Function(List<MobkitCalendarAppointmentModel> list, DateTime datetime)? onPopupWidget;
+  final Widget Function(List<MobkitCalendarAppointmentModel> list, DateTime datetime)? headerWidget;
+  final Widget Function(List<MobkitCalendarAppointmentModel> list, DateTime datetime)? titleWidget;
+  final Widget Function(MobkitCalendarAppointmentModel list, DateTime datetime)? agendaWidget;
+  final Widget Function(Map<DateTime, List<MobkitCalendarAppointmentModel>>)? weeklyViewWidget;
   final Function(DateTime datetime)? dateRangeChanged;
 
   const MobkitCalendarWidget({
@@ -60,6 +62,10 @@ class MobkitCalendarWidget extends StatefulWidget {
     this.eventTap,
     this.onSlotTap,
     this.selectedSlots = const [],
+    this.disableSlotsBefore,
+    this.disableSlotsAfter,
+    this.disabledSlots = const [],
+    this.disabledSlotsColor,
     this.timeSlotsListInitialScrollOffset,
     this.minDate,
     this.onPopupWidget,
@@ -81,18 +87,13 @@ class _MobkitCalendarWidgetState extends State<MobkitCalendarWidget> {
 
   @override
   void initState() {
-    mobkitCalendarController =
-        widget.mobkitCalendarController ?? MobkitCalendarController();
+    mobkitCalendarController = widget.mobkitCalendarController ?? MobkitCalendarController();
     initializeDateFormatting();
     super.initState();
-    assert(
-        (widget.minDate ?? DateTime.utc(0, 0, 0))
-            .isBefore(mobkitCalendarController.calendarDate),
-        "Minimum Date cannot be greater than Calendar Date.");
+    assert((widget.minDate ?? DateTime.utc(0, 0, 0)).isBefore(mobkitCalendarController.calendarDate), "Minimum Date cannot be greater than Calendar Date.");
   }
 
-  late final ValueNotifier<List<DateTime>> selectedDates =
-      ValueNotifier<List<DateTime>>(List<DateTime>.from([]));
+  late final ValueNotifier<List<DateTime>> selectedDates = ValueNotifier<List<DateTime>>(List<DateTime>.from([]));
 
   @override
   Widget build(BuildContext context) {
@@ -105,8 +106,11 @@ class _MobkitCalendarWidgetState extends State<MobkitCalendarWidget> {
             eventTap: widget.eventTap,
             onSlotTap: widget.onSlotTap,
             selectedSlots: widget.selectedSlots,
-            timeSlotsListInitialScrollOffset:
-                widget.timeSlotsListInitialScrollOffset,
+            disableSlotsBefore: widget.disableSlotsBefore,
+            disableSlotsAfter: widget.disableSlotsAfter,
+            disabledSlots: widget.disabledSlots,
+            disabledSlotsColor: widget.disabledSlotsColor,
+            timeSlotsListInitialScrollOffset: widget.timeSlotsListInitialScrollOffset,
             onPopupWidget: widget.onPopupWidget,
             headerWidget: widget.headerWidget,
             titleWidget: widget.titleWidget,
